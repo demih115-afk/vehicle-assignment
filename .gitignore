@@ -1,0 +1,10 @@
+config.json
+__pycache__/
+*.pyc
+test_output*.txt
+확인필요_정류장.txt
+좌표수정결과.txt
+최종수정결과.txt
+버스정류장_*.txt
+schools.txt
+.claude/
