@@ -133,9 +133,16 @@ def format_phone(raw):
         return f"{digits[:3]}-{digits[3:6]}-{digits[6:]}"
     return raw
 
+def _normalize(text):
+    """한글/영문 변환 등 정규화"""
+    t = text.lower().replace(" ", "")
+    # 흔한 한글↔영문 표기 통일
+    t = t.replace("이편한", "e편한").replace("이마트", "emart")
+    return t
+
 def fuzzy_score(query, stop_name):
-    qn = query.lower().replace(" ", "")
-    sn = stop_name.lower().replace(" ", "")
+    qn = _normalize(query)
+    sn = _normalize(stop_name)
     if qn in sn or sn in qn:
         return 100
     keywords = [kw.strip() for kw in re.split(r"[,/\s]+", query.strip()) if kw.strip()]

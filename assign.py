@@ -206,11 +206,18 @@ def get_schedule_keys(schedule_time, days):
     return keys
 
 
+def _normalize(text):
+    """한글/영문 변환 등 정규화"""
+    t = text.lower().replace(" ", "")
+    t = t.replace("이편한", "e편한").replace("이마트", "emart")
+    return t
+
+
 def fuzzy_match_score(query, stop_name):
     """주소 키워드와 정류장명의 유사도 점수 계산"""
     # 원본 보존 후 정규화
-    query_norm = query.lower().replace(" ", "")
-    stop_norm = stop_name.lower().replace(" ", "")
+    query_norm = _normalize(query)
+    stop_norm = _normalize(stop_name)
 
     # 완전 포함
     if query_norm in stop_norm or stop_norm in query_norm:
