@@ -57,7 +57,7 @@ for h in range(8, 23):
         display_h = h if h <= 12 else h - 12
         if h == 12:
             display_h = 12
-        label = f"{ampm} {display_h}:{m:02d}"
+        label = f"{display_h}:{m:02d}"
         # 데이터 키: 12시 이하는 그대로, 13시 이상은 -12
         data_key = f"{h - 12 if h > 12 else h}:{m:02d}"
         TIME_SLOTS.append((label, data_key))
@@ -620,21 +620,23 @@ with st.form("f", border=False):
 
     location_key = st.selectbox("수업장소", list(LOCATIONS.keys()))
 
-    st.write("**수업 요일/시간** (요일을 체크하고 각 요일의 수업시간을 선택하세요)")
+    st.write("**수업 요일/시간**")
     default_time_idx = next((i for i, t in enumerate(TIME_SLOTS) if t[1] == "7:00"), 0)
-    day_cols = st.columns(len(ALL_DAYS))
-    day_time_map = {}  # {요일: 시간 data_key}
-    for i, d in enumerate(ALL_DAYS):
-        with day_cols[i]:
-            checked = st.checkbox(d, value=(d in ["월", "수", "금"]), key=f"day_{d}")
-            t_idx = st.selectbox(
-                "시간", range(len(TIME_SLOTS)),
-                format_func=lambda j: TIME_SLOTS[j][0],
-                index=default_time_idx, key=f"time_{d}",
-                label_visibility="collapsed",
-            )
-            if checked:
-                day_time_map[d] = TIME_SLOTS[t_idx][1]
+    day_time_map = {}
+    # 3열씩 2행
+    for row_days in [ALL_DAYS[:3], ALL_DAYS[3:]]:
+        cols = st.columns(len(row_days))
+        for i, d in enumerate(row_days):
+            with cols[i]:
+                checked = st.checkbox(d, value=(d in ["월", "수", "금"]), key=f"day_{d}")
+                t_idx = st.selectbox(
+                    f"{d} 시간", range(len(TIME_SLOTS)),
+                    format_func=lambda j: TIME_SLOTS[j][0],
+                    index=default_time_idx, key=f"time_{d}",
+                    label_visibility="collapsed",
+                )
+                if checked:
+                    day_time_map[d] = TIME_SLOTS[t_idx][1]
 
     st.divider()
     st.subheader("탑승 정보")
