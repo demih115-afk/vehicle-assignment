@@ -108,6 +108,12 @@ ULSAN_CENTER_LNG = 129.330
 ULSAN_CENTER_LAT = 35.564
 ULSAN_RADIUS = 6000  # 6km
 
+def _clean_address(address):
+    """검색 전 불필요한 접미사 제거"""
+    # "함월초 앞", "남외중 근처" → "함월초", "남외중"
+    return re.sub(r"\s*(앞|근처|부근|옆|쪽|근방)\s*$", "", address.strip())
+
+
 def geocode(address):
     config = load_config()
     key = config.get("kakao_rest_api_key", "")
@@ -115,7 +121,8 @@ def geocode(address):
         return None, None, None
     ctx = ssl.create_default_context()
     headers = {"Authorization": f"KakaoAK {key}"}
-    q = f"울산 중구 {address}" if "울산" not in address else address
+    cleaned = _clean_address(address)
+    q = f"울산 중구 {cleaned}" if "울산" not in cleaned else cleaned
     enc = urllib.parse.quote(q)
 
     # 1차: 주소 검색
@@ -146,11 +153,11 @@ def geocode(address):
     except Exception:
         pass
 
-    # 3차: "울산 중구" 없이 재시도 (학부모가 "울산" 포함해서 적은 경우)
-    if "울산" in address:
-        q2 = urllib.parse.quote(address)
+    # 3차: "울산 중구" 빼고 원본으로 재시도
+    for retry_q in [cleaned, address]:
+        enc2 = urllib.parse.quote(retry_q)
         try:
-            url = (f"https://dapi.kakao.com/v2/local/search/keyword.json?query={q2}&size=5"
+            url = (f"https://dapi.kakao.com/v2/local/search/keyword.json?query={enc2}&size=5"
                    f"&x={ULSAN_CENTER_LNG}&y={ULSAN_CENTER_LAT}&radius={ULSAN_RADIUS}&sort=distance")
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
