@@ -103,6 +103,11 @@ def haversine(lat1, lng1, lat2, lng2):
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
+# 울산 중구 중심 좌표 + 반경 (학원 차량 운행 범위)
+ULSAN_CENTER_LNG = 129.330
+ULSAN_CENTER_LAT = 35.564
+ULSAN_RADIUS = 6000  # 6km
+
 def geocode(address):
     config = load_config()
     key = config.get("kakao_rest_api_key", "")
@@ -110,19 +115,53 @@ def geocode(address):
         return None, None, None
     ctx = ssl.create_default_context()
     headers = {"Authorization": f"KakaoAK {key}"}
-    q = f"울산 {address}" if "울산" not in address else address
+    q = f"울산 중구 {address}" if "울산" not in address else address
     enc = urllib.parse.quote(q)
-    for ep in ["address", "keyword"]:
+
+    # 1차: 주소 검색
+    try:
+        url = f"https://dapi.kakao.com/v2/local/search/address.json?query={enc}&size=1"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+            docs = json.loads(resp.read()).get("documents", [])
+            if docs:
+                d = docs[0]
+                lat, lng = float(d["y"]), float(d["x"])
+                if haversine(ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, lat, lng) < ULSAN_RADIUS:
+                    return lat, lng, d.get("address_name", "")
+    except Exception:
+        pass
+
+    # 2차: 키워드 검색 (울산 중구 중심 + 반경 제한)
+    try:
+        url = (f"https://dapi.kakao.com/v2/local/search/keyword.json?query={enc}&size=5"
+               f"&x={ULSAN_CENTER_LNG}&y={ULSAN_CENTER_LAT}&radius={ULSAN_RADIUS}&sort=distance")
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+            docs = json.loads(resp.read()).get("documents", [])
+            for d in docs:
+                lat, lng = float(d["y"]), float(d["x"])
+                if haversine(ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, lat, lng) < ULSAN_RADIUS:
+                    return lat, lng, d.get("place_name", "")
+    except Exception:
+        pass
+
+    # 3차: "울산 중구" 없이 재시도 (학부모가 "울산" 포함해서 적은 경우)
+    if "울산" in address:
+        q2 = urllib.parse.quote(address)
         try:
-            url = f"https://dapi.kakao.com/v2/local/search/{ep}.json?query={enc}&size=1"
+            url = (f"https://dapi.kakao.com/v2/local/search/keyword.json?query={q2}&size=5"
+                   f"&x={ULSAN_CENTER_LNG}&y={ULSAN_CENTER_LAT}&radius={ULSAN_RADIUS}&sort=distance")
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
                 docs = json.loads(resp.read()).get("documents", [])
-                if docs:
-                    d = docs[0]
-                    return float(d["y"]), float(d["x"]), d.get("address_name") or d.get("place_name", "")
+                for d in docs:
+                    lat, lng = float(d["y"]), float(d["x"])
+                    if haversine(ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, lat, lng) < ULSAN_RADIUS:
+                        return lat, lng, d.get("place_name", "")
         except Exception:
             pass
+
     return None, None, None
 
 def format_phone(raw):
@@ -136,19 +175,32 @@ def format_phone(raw):
 def _normalize(text):
     """한글/영문 변환 등 정규화"""
     t = text.lower().replace(" ", "")
-    # 흔한 한글↔영문 표기 통일
     t = t.replace("이편한", "e편한").replace("이마트", "emart")
+    t = t.replace("kcc", "kcc").replace("ｋｃｃ", "kcc")
     return t
+
+# 방향/위치 힌트 키워드
+HINT_KEYWORDS = ["후문", "정문", "쪽문", "앞", "옆", "뒤", "입구", "맞은편",
+                 "cu", "gs25", "세븐일레븐", "이마트24", "버스정류장"]
+
+def _extract_hints(text):
+    """입력에서 방향/위치 힌트 추출"""
+    t = text.lower().replace(" ", "")
+    return [h for h in HINT_KEYWORDS if h in t]
 
 def fuzzy_score(query, stop_name):
     qn = _normalize(query)
     sn = _normalize(stop_name)
+
+    # 완전 포함
     if qn in sn or sn in qn:
         return 100
+
+    # 키워드 분리 매칭
     keywords = [kw.strip() for kw in re.split(r"[,/\s]+", query.strip()) if kw.strip()]
     score, matched = 0, 0
     for kw in keywords:
-        kn = kw.lower().replace(" ", "")
+        kn = _normalize(kw)
         ks = re.sub(r"동$", "", kn) if len(kn) > 2 else kn
         if kn in sn:
             score += 50; matched += 1
@@ -159,10 +211,18 @@ def fuzzy_score(query, stop_name):
                 found = False
                 for i in range(len(kn) - l + 1):
                     if kn[i:i+l] in sn:
-                        score += min(l*10, 40); matched += 1; found = True; break
+                        score += min(l * 10, 40); matched += 1; found = True; break
                 if found: break
     if keywords and matched == len(keywords):
         score += 20
+
+    # 힌트 보너스: 입력에 "후문", "CU" 등이 있고 정류장명에도 있으면 가산
+    input_hints = _extract_hints(query)
+    if input_hints:
+        stop_lower = stop_name.lower().replace(" ", "")
+        hint_match = sum(1 for h in input_hints if h in stop_lower)
+        score += hint_match * 15  # 힌트 1개 매칭당 15점
+
     return score
 
 def get_schedule_keys(schedule_time, days):
@@ -175,10 +235,25 @@ def get_schedule_keys(schedule_time, days):
         return keys
     return [schedule_time]
 
+KNOWN_MAPPINGS_PATH = os.path.join(BASE_DIR, "data", "known_mappings.json")
+
+@st.cache_data
+def load_known_mappings():
+    if os.path.exists(KNOWN_MAPPINGS_PATH):
+        with open(KNOWN_MAPPINGS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def find_stops(data, schedule_time, days, address, student_coords, threshold):
     is_wd = any(d in "월화수목금" for d in days)
     is_sat = "토" in days
-    KEYWORD_BOOST = 80  # 이름이 완전히 포함되는 경우(100점)만 거리보다 우선
+    KEYWORD_BOOST = 80
+
+    # 0단계: 과거 배정 이력 매칭 (최우선)
+    known = load_known_mappings()
+    addr_norm = _normalize(address) if address else ""
+    known_stop_name = known.get(addr_norm, "")
 
     all_stops = []
     for v in data["vehicles"]:
@@ -193,7 +268,13 @@ def find_stops(data, schedule_time, days, address, student_coords, threshold):
                                   "schedule_type": "saturday", "route_order": idx})
 
     for r in all_stops:
-        r["kw"] = fuzzy_score(address, r["stop"]["stop"]) if address else 0
+        sn = r["stop"]["stop"]
+        r["kw"] = fuzzy_score(address, sn) if address else 0
+
+        # 과거 이력 매칭 보너스
+        if known_stop_name and _normalize(sn) == _normalize(known_stop_name):
+            r["kw"] = max(r["kw"], 200)  # 이력 매칭 = 최고 점수
+
         if student_coords and student_coords[0] and r["stop"].get("lat"):
             r["dist"] = haversine(student_coords[0], student_coords[1], r["stop"]["lat"], r["stop"]["lng"])
         else:
@@ -201,15 +282,20 @@ def find_stops(data, schedule_time, days, address, student_coords, threshold):
 
     if student_coords and student_coords[0]:
         wd = [r for r in all_stops if r["dist"] is not None]
-        strong = sorted([r for r in wd if r["kw"] >= KEYWORD_BOOST], key=lambda x: (-x["kw"], x["dist"]))
-        weak = sorted([r for r in wd if r["kw"] < KEYWORD_BOOST], key=lambda x: x["dist"])
-        combined = strong + weak
-        # 근접 정류장 코스 뒤쪽 우선
+
+        # 3단계 정렬: 이력매칭(200+) > 이름매칭(80+) > 거리순
+        tier1 = sorted([r for r in wd if r["kw"] >= 200], key=lambda x: x["dist"])
+        tier2 = sorted([r for r in wd if 200 > r["kw"] >= KEYWORD_BOOST], key=lambda x: (-x["kw"], x["dist"]))
+        tier3 = sorted([r for r in wd if r["kw"] < KEYWORD_BOOST], key=lambda x: x["dist"])
+        combined = tier1 + tier2 + tier3
+
+        # 근접 정류장 코스 뒤쪽 우선 (같은 tier 내에서만)
         i = 0
         while i < len(combined) - 1:
             j = i + 1
             while j < len(combined):
-                if abs(combined[j]["dist"] - combined[i]["dist"]) > threshold:
+                di, dj = combined[i].get("dist", 0), combined[j].get("dist", 0)
+                if abs(dj - di) > threshold:
                     break
                 if (combined[j]["vehicle"]["number"] == combined[i]["vehicle"]["number"]
                         and combined[j]["route_order"] > combined[i]["route_order"]
@@ -218,6 +304,7 @@ def find_stops(data, schedule_time, days, address, student_coords, threshold):
                 j += 1
             i += 1
         return combined
+
     elif address:
         r = [x for x in all_stops if x["kw"] > 0]
         r.sort(key=lambda x: x["kw"], reverse=True)
