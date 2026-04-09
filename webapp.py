@@ -369,9 +369,10 @@ st.title("🚌 차량배정")
 data = load_data()
 
 # 사이드바
+NEARBY_THRESHOLD = 20  # 미터. 내부 설정
+
 with st.sidebar:
     st.caption("⚙️ 설정")
-    threshold = st.slider("거리 유사 기준(m)", 10, 100, 20, 5)
     show_driver = st.toggle("기사님 연락처 포함", value=False)
 
 # ─── 입력 폼 ───
@@ -450,7 +451,7 @@ if submitted:
     if lat:
         st.caption(f"📍 {resolved}")
 
-    results = find_stops(data, schedule_time, selected_days, address, student_coords, threshold)
+    results = find_stops(data, schedule_time, selected_days, address, student_coords, NEARBY_THRESHOLD)
 
     # 중복 제거 + 상위 3개
     seen, candidates = set(), []
