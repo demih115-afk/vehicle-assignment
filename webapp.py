@@ -594,6 +594,12 @@ with st.sidebar:
     st.caption("⚙️ 설정")
     show_driver = st.toggle("기사님 연락처 포함", value=False)
     st.divider()
+    from datetime import datetime as _dt
+    st.caption(f"데이터: {_dt.now().strftime('%Y-%m-%d %H:%M')} 기준")
+    if st.button("🔄 새로고침", use_container_width=True):
+        load_data.clear()
+        load_data_from_sheets.clear()
+        st.rerun()
     st.caption("made by 국D w/ Claude Code")
 
 # ─── 입력 폼 ───
