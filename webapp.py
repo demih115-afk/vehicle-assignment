@@ -558,7 +558,7 @@ def make_parent_msg(info, r, show_driver=False):
     short_url = shorten_map_url(s.get("map_url", ""))
     if short_url:
         msg += f"\n■ 위치 확인\n{short_url}\n"
-    msg += f"\n■ 수업 정보\n- 수업: {info['days']} {info['time_display']}\n- 장소: {info['location']}\n- 시작일: {info['start_date']}부터\n"
+    msg += f"\n■ 수업 정보\n- 수업: {info['days']}\n- 장소: {info['location']}\n- 시작일: {info['start_date']}부터\n"
     msg += "\n※ 탑승 장소에 5분 전 대기 부탁드립니다."
     return msg
 
@@ -569,7 +569,7 @@ def make_notice(info, r):
         n += f"ㅇ 등원 차량 : {v['number']}호차({s['stop']}/{s['time']})\n"
     else:
         n += f"ㅇ 등원 차량 : ({s['stop']})\n"
-    n += f"ㅇ 수업시간 : {info['days']} {info['time_display']}\n"
+    n += f"ㅇ 수업시간 : {info['days']}\n"
     n += f"ㅇ 수업장소 : {info['location']}\n"
     n += f"ㅇ 탑승시작일자 : {info['start_date']}부터\n"
     n += f"ㅇ 학생 연락처 : {info['student_phone']}\n"
@@ -618,18 +618,23 @@ with st.form("f", border=False):
     st.divider()
     st.subheader("수업 정보")
 
-    c7, c8 = st.columns(2)
-    time_idx = c7.selectbox("수업시간", range(len(TIME_SLOTS)),
-                            format_func=lambda i: TIME_SLOTS[i][0],
-                            index=next((i for i, t in enumerate(TIME_SLOTS) if t[1] == "7:00"), 0))
-    location_key = c8.selectbox("수업장소", list(LOCATIONS.keys()))
+    location_key = st.selectbox("수업장소", list(LOCATIONS.keys()))
 
-    st.write("**수업요일**")
+    st.write("**수업 요일/시간** (요일을 체크하고 각 요일의 수업시간을 선택하세요)")
+    default_time_idx = next((i for i, t in enumerate(TIME_SLOTS) if t[1] == "7:00"), 0)
     day_cols = st.columns(len(ALL_DAYS))
-    selected_days = []
+    day_time_map = {}  # {요일: 시간 data_key}
     for i, d in enumerate(ALL_DAYS):
-        if day_cols[i].checkbox(d, value=(d in ["월", "수", "금"]), key=f"day_{d}"):
-            selected_days.append(d)
+        with day_cols[i]:
+            checked = st.checkbox(d, value=(d in ["월", "수", "금"]), key=f"day_{d}")
+            t_idx = st.selectbox(
+                "시간", range(len(TIME_SLOTS)),
+                format_func=lambda j: TIME_SLOTS[j][0],
+                index=default_time_idx, key=f"time_{d}",
+                label_visibility="collapsed",
+            )
+            if checked:
+                day_time_map[d] = TIME_SLOTS[t_idx][1]
 
     st.divider()
     st.subheader("탑승 정보")
@@ -639,8 +644,31 @@ with st.form("f", border=False):
 
     submitted = st.form_submit_button("🔍 정류장 검색", use_container_width=True, type="primary")
 
+def _time_to_display(ct):
+    m = re.match(r"(\d{1,2}):(\d{2})", ct)
+    if m:
+        return f"{m.group(1)}시" if m.group(2) == "00" else f"{m.group(1)}시 {int(m.group(2))}분"
+    return ct
+
+def _format_days_display(day_time_map):
+    """요일/시간 맵 → 표시용 문자열 (같은 시간끼리 묶음)"""
+    # {시간: [요일들]} 역매핑
+    time_to_days = {}
+    for d, t in day_time_map.items():
+        if t not in time_to_days:
+            time_to_days[t] = []
+        time_to_days[t].append(d)
+
+    parts = []
+    for t, days in time_to_days.items():
+        parts.append(f"{','.join(days)} {_time_to_display(t)}")
+    return " / ".join(parts)
+
+
 # ─── 검색 처리 ───
 if submitted:
+    selected_days = list(day_time_map.keys())
+
     errors = []
     if not name: errors.append("이름")
     if not school: errors.append("학교")
@@ -654,19 +682,16 @@ if submitted:
         st.error(f"다음 항목을 입력해주세요: {', '.join(errors)}")
         st.stop()
 
-    schedule_time = TIME_SLOTS[time_idx][1]
     location_value = LOCATIONS[location_key]
     s_phone = format_phone(student_phone)
     p_phone = format_phone(parent_phone)
     sd = start_date
     start_str = f"{sd.month}월 {sd.day}일({DAY_KR[sd.weekday()]})"
-    ct = schedule_time
-    m = re.match(r"(\d{1,2}):(\d{2})", ct)
-    time_display = f"{m.group(1)}시" if m and m.group(2) == "00" else f"{m.group(1)}시 {int(m.group(2))}분" if m else ct
+    days_display = _format_days_display(day_time_map)
 
     info = {
         "name": name, "school": school, "grade": grade, "status": status,
-        "time_display": time_display, "days": ",".join(selected_days),
+        "time_display": days_display, "days": days_display,
         "location": location_value, "start_date": start_str,
         "student_phone": s_phone, "parent_phone": p_phone,
     }
@@ -678,7 +703,18 @@ if submitted:
     if lat:
         st.caption(f"📍 {resolved}")
 
-    results = find_stops(data, schedule_time, selected_days, address, student_coords, NEARBY_THRESHOLD)
+    # 모든 고유 시간대에서 검색 후 합치기
+    unique_times = set(day_time_map.values())
+    all_results = []
+    for schedule_time in unique_times:
+        # 해당 시간의 요일만 추출
+        days_for_time = [d for d, t in day_time_map.items() if t == schedule_time]
+        results = find_stops(data, schedule_time, days_for_time, address, student_coords, NEARBY_THRESHOLD)
+        all_results.extend(results)
+
+    # 거리순 재정렬
+    all_results.sort(key=lambda x: x.get("dist", 999999))
+    results = all_results
 
     # 중복 제거 + 상위 3개
     seen, candidates = set(), []
@@ -695,7 +731,8 @@ if submitted:
 
     if is_manual:
         # 다른 시간대에서 가장 가까운 정류장 찾기 (위치 참고용)
-        fallback = find_stops(data, "7:00", selected_days, address, student_coords, NEARBY_THRESHOLD)
+        fallback_days = [d for d in selected_days if d != "토"] or ["월", "수", "금"]
+        fallback = find_stops(data, "7:00", fallback_days, address, student_coords, NEARBY_THRESHOLD)
         seen_fb, fb_candidates = set(), []
         for r in fallback:
             key = f"{r['vehicle']['number']}_{r['stop']['stop']}"
