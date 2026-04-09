@@ -372,6 +372,7 @@ data = load_data()
 with st.sidebar:
     st.caption("⚙️ 설정")
     threshold = st.slider("거리 유사 기준(m)", 10, 100, 20, 5)
+    show_driver = st.toggle("기사님 연락처 포함", value=False)
 
 # ─── 입력 폼 ───
 with st.form("f", border=False):
@@ -467,8 +468,6 @@ if submitted:
         st.stop()
 
     st.divider()
-    show_driver = st.toggle("기사님 연락처 포함", value=False)
-
     for i, r in enumerate(candidates):
         v, s = r["vehicle"], r["stop"]
         dist = f" · {r['dist']:.0f}m" if r.get("dist") else ""
