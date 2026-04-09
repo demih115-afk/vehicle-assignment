@@ -70,14 +70,23 @@ def load_config():
     return {}
 
 
+ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, ULSAN_RADIUS = 35.564, 129.330, 6000
+
+
+def _clean_address(address):
+    """검색 전 불필요한 접미사 제거"""
+    return re.sub(r"\s*(앞|근처|부근|옆|쪽|근방)\s*$", "", address.strip())
+
+
 def geocode_kakao(address, api_key):
-    """카카오 Local API로 주소/장소명 → 좌표 변환 (주소검색 → 키워드검색 순)"""
+    """카카오 Local API로 주소/장소명 → 좌표 변환 (반경 제한)"""
     ctx = ssl.create_default_context()
     headers = {"Authorization": f"KakaoAK {api_key}"}
-    query = f"울산 {address}" if "울산" not in address else address
+    cleaned = _clean_address(address)
+    query = f"울산 중구 {cleaned}" if "울산" not in cleaned else cleaned
     encoded = urllib.parse.quote(query)
 
-    # 1차: 주소 검색 (도로명/지번 주소)
+    # 1차: 주소 검색
     try:
         url = f"https://dapi.kakao.com/v2/local/search/address.json?query={encoded}&size=1"
         req = urllib.request.Request(url, headers=headers)
@@ -86,22 +95,42 @@ def geocode_kakao(address, api_key):
             docs = data.get("documents", [])
             if docs:
                 d = docs[0]
-                return float(d["y"]), float(d["x"]), d.get("address_name", "")
+                lat, lng = float(d["y"]), float(d["x"])
+                if haversine(ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, lat, lng) < ULSAN_RADIUS:
+                    return lat, lng, d.get("address_name", "")
     except Exception:
         pass
 
-    # 2차: 키워드 검색 (아파트명, 건물명 등)
+    # 2차: 키워드 검색 (반경 제한)
     try:
-        url = f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded}&size=1"
+        url = (f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded}&size=5"
+               f"&x={ULSAN_CENTER_LNG}&y={ULSAN_CENTER_LAT}&radius={ULSAN_RADIUS}&sort=distance")
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
             data = json.loads(resp.read())
             docs = data.get("documents", [])
-            if docs:
-                d = docs[0]
-                return float(d["y"]), float(d["x"]), d.get("place_name", "")
+            for d in docs:
+                lat, lng = float(d["y"]), float(d["x"])
+                if haversine(ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, lat, lng) < ULSAN_RADIUS:
+                    return lat, lng, d.get("place_name", "")
     except Exception:
         pass
+
+    # 3차: 원본으로 재시도
+    for retry_q in [cleaned, address]:
+        enc2 = urllib.parse.quote(retry_q)
+        try:
+            url = (f"https://dapi.kakao.com/v2/local/search/keyword.json?query={enc2}&size=5"
+                   f"&x={ULSAN_CENTER_LNG}&y={ULSAN_CENTER_LAT}&radius={ULSAN_RADIUS}&sort=distance")
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+                docs = json.loads(resp.read()).get("documents", [])
+                for d in docs:
+                    lat, lng = float(d["y"]), float(d["x"])
+                    if haversine(ULSAN_CENTER_LAT, ULSAN_CENTER_LNG, lat, lng) < ULSAN_RADIUS:
+                        return lat, lng, d.get("place_name", "")
+        except Exception:
+            pass
 
     return None, None, None
 
