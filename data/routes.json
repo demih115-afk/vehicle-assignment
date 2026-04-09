@@ -439,7 +439,7 @@
           {
             "stop": "마제스타워 회전교차로",
             "time": "7:37",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/1538973236?c=19.43,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051636&locale=ko&svcName=map_pcv5",
             "lat": 35.5532249,
             "lng": 129.3140789
           },
@@ -469,9 +469,9 @@
           {
             "stop": "센트리지 4단지 후문",
             "time": "8:50",
-            "map_url": "",
-            "lat": 35.5603029898889,
-            "lng": 129.327184025717
+            "map_url": "https://map.naver.com/p/entry/place/1633672101?c=18.64,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051638&locale=ko&svcName=map_pcv5",
+            "lat": 35.5604301,
+            "lng": 129.3271645
           }
         ]
       },
@@ -1226,23 +1226,23 @@
           {
             "stop": "원예농협 명촌지점",
             "time": "8:40",
-            "map_url": "",
-            "lat": 35.55351036525333,
-            "lng": 129.35577453420007
+            "map_url": "https://map.naver.com/p/entry/place/11797408?c=19.48,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051750&locale=ko&svcName=map_pcv5",
+            "lat": 35.5536287,
+            "lng": 129.3557357
           },
           {
             "stop": "남외중 정문 앞",
             "time": "8:50",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16549355?c=18.22,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602231512&locale=ko&svcName=map_pcv5",
             "lat": 35.566327,
             "lng": 129.3479279
           },
           {
             "stop": "천상재활용센터",
             "time": "8:53",
-            "map_url": "",
-            "lat": 35.5620181744379,
-            "lng": 129.341253728587
+            "map_url": "https://map.naver.com/p/entry/place/16515237?c=18.24,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051834&locale=ko&svcName=map_pcv5",
+            "lat": 35.5619356,
+            "lng": 129.3413004
           }
         ]
       },
@@ -1293,7 +1293,7 @@
           {
             "stop": "남외중 정문 앞",
             "time": "9:50",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16549355?c=18.22,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602231512&locale=ko&svcName=map_pcv5",
             "lat": 35.566327,
             "lng": 129.3479279
           },
@@ -1307,7 +1307,7 @@
           {
             "stop": "동진숯불갈비",
             "time": "9:54",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16551837?c=19.41,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051757&locale=ko&svcName=map_pcv5",
             "lat": 35.5601804,
             "lng": 129.3398168
           }
@@ -1358,7 +1358,7 @@
           {
             "stop": "남외중 정문 앞",
             "time": "11:50",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16549355?c=18.22,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602231512&locale=ko&svcName=map_pcv5",
             "lat": 35.566327,
             "lng": 129.3479279
           },
@@ -1372,7 +1372,7 @@
           {
             "stop": "동진숯불갈비",
             "time": "11:54",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16551837?c=19.41,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051757&locale=ko&svcName=map_pcv5",
             "lat": 35.5601804,
             "lng": 129.3398168
           }
@@ -1396,9 +1396,9 @@
           {
             "stop": "강변E편한 후문",
             "time": "2:02",
-            "map_url": "",
-            "lat": 35.5565924532,
-            "lng": 129.347299376837
+            "map_url": "https://map.naver.com/p/entry/place/56655754?c=19.26,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602231509&locale=ko&svcName=map_pcv5",
+            "lat": 35.5566041,
+            "lng": 129.3473021
           },
           {
             "stop": "남외동 자연드림",
@@ -1677,14 +1677,14 @@
           {
             "stop": "명촌 효성해링턴 버스정류장",
             "time": "7:33",
-            "map_url": "",
-            "lat": 35.55725939377248,
-            "lng": 129.35375836089023
+            "map_url": "https://map.naver.com/p/entry/bus-station/55053138?c=17.66,0,0,0,dh",
+            "lat": 35.556903,
+            "lng": 129.3534619
           },
           {
             "stop": "남외중 정문 앞",
             "time": "7:50",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16549355?c=18.22,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602231512&locale=ko&svcName=map_pcv5",
             "lat": 35.566327,
             "lng": 129.3479279
           }
@@ -1700,7 +1700,7 @@
           {
             "stop": "남외중 정문 앞",
             "time": "7:50",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16549355?c=18.22,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602231512&locale=ko&svcName=map_pcv5",
             "lat": 35.566327,
             "lng": 129.3479279
           }
@@ -1767,7 +1767,7 @@
           {
             "stop": "동진숯불갈비",
             "time": "9:54",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16551837?c=19.41,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051757&locale=ko&svcName=map_pcv5",
             "lat": 35.5601804,
             "lng": 129.3398168
           }
@@ -1832,7 +1832,7 @@
           {
             "stop": "동진숯불갈비",
             "time": "11:54",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16551837?c=19.41,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051757&locale=ko&svcName=map_pcv5",
             "lat": 35.5601804,
             "lng": 129.3398168
           }
@@ -1863,30 +1863,30 @@
           {
             "stop": "외솔초 정문",
             "time": "2:10",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/38608875?c=19.31,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051831&locale=ko&svcName=map_pcv5",
             "lat": 35.5835895,
             "lng": 129.3419356
           },
           {
             "stop": "센트리지2단지 GS25 맞은편",
             "time": "2:19",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/1986139606?c=18.05,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051826&locale=ko&svcName=map_pcv5",
             "lat": 35.561577,
             "lng": 129.3234553
           },
           {
             "stop": "센트리지 하삼동커피",
             "time": "2:20",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/1993257929?c=18.64,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051638&locale=ko&svcName=map_pcv5",
             "lat": 35.5620744,
             "lng": 129.3259726
           },
           {
             "stop": "센트리지 4단지 후문",
             "time": "2:21",
-            "map_url": "",
-            "lat": 35.5603029898889,
-            "lng": 129.327184025717
+            "map_url": "https://map.naver.com/p/entry/place/1633672101?c=18.64,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051638&locale=ko&svcName=map_pcv5",
+            "lat": 35.5604301,
+            "lng": 129.3271645
           },
           {
             "stop": "복산초 정문 맞은편",
@@ -1898,9 +1898,9 @@
           {
             "stop": "복산아이파크 후문  버스정류장",
             "time": "2:25",
-            "map_url": "",
-            "lat": 35.56439082002684,
-            "lng": 129.3294361178544
+            "map_url": "https://map.naver.com/p/entry/bus-station/631023?c=17.69,0,0,0,dh",
+            "lat": 35.5652715,
+            "lng": 129.3286919
           }
         ],
         "4:00": [
@@ -4054,16 +4054,16 @@
           {
             "stop": "약사아이파크",
             "time": "2:07",
-            "map_url": "",
-            "lat": 35.57199840202121,
-            "lng": 129.3379974175774
+            "map_url": "https://map.naver.com/p/entry/place/37644310?c=19.29,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602121550&locale=ko&svcName=map_pcv5",
+            "lat": 35.5712153,
+            "lng": 129.3386289
           },
           {
             "stop": "더샵상가",
             "time": "2:10",
-            "map_url": "",
-            "lat": 35.5516753178526,
-            "lng": 129.250950090637
+            "map_url": "https://map.naver.com/p/entry/place/16551040?c=19.31,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602191203&locale=ko&svcName=map_pcv5",
+            "lat": 35.569387,
+            "lng": 129.3375298
           },
           {
             "stop": "평산초",
@@ -4075,14 +4075,14 @@
           {
             "stop": "더샵사거리",
             "time": "2:13",
-            "map_url": "",
-            "lat": 35.568290133411914,
-            "lng": 129.33723014305605
+            "map_url": "https://map.naver.com/p/entry/bus-station/616032?c=18.33,0,0,0,dh",
+            "lat": 35.5672107,
+            "lng": 129.3374216
           },
           {
             "stop": "무룡초 정문",
             "time": "2:15",
-            "map_url": "",
+            "map_url": "https://map.naver.com/p/entry/place/16550898?c=18.65,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602051809&locale=ko&svcName=map_pcv5",
             "lat": 35.5691144,
             "lng": 129.3350935
           },
@@ -4510,9 +4510,9 @@
           {
             "stop": "병영막창",
             "time": "7:50",
-            "map_url": "",
-            "lat": 35.5691981626916,
-            "lng": 129.341048043962
+            "map_url": "https://map.naver.com/p/entry/place/19643892?c=19.05,0,0,0,dh&placePath=/home?from=map&fromPanelNum=1&additionalHeight=76&timestamp=202602121550&locale=ko&svcName=map_pcv5",
+            "lat": 35.5692459,
+            "lng": 129.3410708
           }
         ],
         "8:00_화목": [
