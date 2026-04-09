@@ -326,12 +326,14 @@ def shorten_map_url(url):
     # /entry/bus-station/12345?c=... → /entry/bus-station/12345
     return url.split("?")[0]
 
-def make_parent_msg(info, r):
+def make_parent_msg(info, r, show_driver=False):
     s, v = r["stop"], r["vehicle"]
     msg = "[더숲국어전문학원 차량 안내]\n\n"
     msg += f"안녕하세요, {info['name']} 학생 차량 안내드립니다.\n\n"
     if r.get("has_info"):
-        msg += f"■ 탑승 정보\n- 장소: {s['stop']}\n- 시간: {s['time']}\n- 차량: {v['number']}호차\n- 기사님: {v['driver']} ({v['phone']})\n"
+        msg += f"■ 탑승 정보\n- 장소: {s['stop']}\n- 시간: {s['time']}\n- 차량: {v['number']}호차\n"
+        if show_driver:
+            msg += f"- 기사님: {v['driver']} ({v['phone']})\n"
     else:
         msg += f"■ 탑승 정보\n- 장소: {s['stop']}\n"
     short_url = shorten_map_url(s.get("map_url", ""))
@@ -465,13 +467,15 @@ if submitted:
         st.stop()
 
     st.divider()
+    show_driver = st.toggle("기사님 연락처 포함", value=False)
+
     for i, r in enumerate(candidates):
         v, s = r["vehicle"], r["stop"]
         dist = f" · {r['dist']:.0f}m" if r.get("dist") else ""
         rank = ["1순위", "2순위", "3순위"][i]
 
         with st.expander(f"**{rank}** — {v['number']}호차 {s['stop']} ({s['time']}){dist}", expanded=(i == 0)):
-            parent_msg = make_parent_msg(info, r)
+            parent_msg = make_parent_msg(info, r, show_driver=show_driver)
             notice = make_notice(info, r)
 
             t1, t2 = st.tabs(["📱 학부모 안내 문자", "📝 내부 배정 양식"])
