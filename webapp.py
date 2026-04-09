@@ -685,9 +685,37 @@ if submitted:
         if len(candidates) >= 3:
             break
 
-    if not candidates:
-        st.error("매칭되는 정류장이 없습니다. 타는 곳을 다시 확인해주세요.")
-        st.stop()
+    is_manual = not candidates  # 해당 시간대에 코스가 없음 → 수동 배정
+
+    if is_manual:
+        # 다른 시간대에서 가장 가까운 정류장 찾기 (위치 참고용)
+        fallback = find_stops(data, "7:00", selected_days, address, student_coords, NEARBY_THRESHOLD)
+        seen_fb, fb_candidates = set(), []
+        for r in fallback:
+            key = f"{r['vehicle']['number']}_{r['stop']['stop']}"
+            if key not in seen_fb:
+                seen_fb.add(key)
+                r["has_info"] = False
+                fb_candidates.append(r)
+            if len(fb_candidates) >= 3:
+                break
+
+        st.divider()
+        st.warning(
+            "⚠️ **수동 배정이 필요합니다**\n\n"
+            f"선택하신 시간대({time_display})에 해당 지역의 코스표가 없습니다.\n\n"
+            "**진행 방법:**\n"
+            "1. 아래에서 가장 가까운 탑승 위치를 선택하세요\n"
+            "2. 내부 배정 양식을 카톡 배정방에 보내주세요\n"
+            "3. 차량 담당자가 호차/시간을 배정하면\n"
+            "4. 그때 학부모 안내 문자를 작성해주세요"
+        )
+
+        if not fb_candidates:
+            st.error("매칭되는 정류장이 없습니다. 타는 곳을 다시 확인해주세요.")
+            st.stop()
+
+        candidates = fb_candidates
 
     st.divider()
     for i, r in enumerate(candidates):
@@ -695,12 +723,45 @@ if submitted:
         dist = f" · {r['dist']:.0f}m" if r.get("dist") else ""
         rank = ["1순위", "2순위", "3순위"][i]
 
-        with st.expander(f"**{rank}** — {v['number']}호차 {s['stop']} ({s['time']}){dist}", expanded=(i == 0)):
-            parent_msg = make_parent_msg(info, r, show_driver=show_driver)
-            notice = make_notice(info, r)
+        if is_manual:
+            label = f"**{rank}** — {s['stop']}{dist}"
+        else:
+            label = f"**{rank}** — {v['number']}호차 {s['stop']} ({s['time']}){dist}"
 
-            t1, t2 = st.tabs(["📱 학부모 안내 문자", "📝 내부 배정 양식"])
-            with t1:
-                st.code(parent_msg, language=None)
-            with t2:
+        with st.expander(label, expanded=(i == 0)):
+            if is_manual:
+                # 수동 배정: 내부 양식만 먼저, 학부모 문자는 배정 후
+                notice = make_notice(info, r)
+                st.caption("📝 내부 배정 양식 (카톡 배정방에 전달)")
                 st.code(notice, language=None)
+                st.divider()
+                st.caption("📱 학부모 안내 문자 (차량 배정 확정 후 작성)")
+                manual_vehicle = st.text_input("배정된 호차", placeholder="예: 3호차", key=f"mv_{i}")
+                manual_time = st.text_input("탑승 시간", placeholder="예: 7:35", key=f"mt_{i}")
+                if manual_vehicle and manual_time:
+                    manual_r = dict(r)
+                    manual_r["has_info"] = True
+                    manual_r["stop"] = dict(s)
+                    manual_r["stop"]["time"] = manual_time
+                    manual_r["vehicle"] = dict(v)
+                    # 호차 번호 파싱
+                    vm = re.search(r"(\d+)", manual_vehicle)
+                    if vm:
+                        manual_r["vehicle"]["number"] = int(vm.group(1))
+                        # 해당 호차 기사 정보 찾기
+                        for vdata in data["vehicles"]:
+                            if vdata["number"] == int(vm.group(1)):
+                                manual_r["vehicle"]["driver"] = vdata["driver"]
+                                manual_r["vehicle"]["phone"] = vdata["phone"]
+                                break
+                    parent_msg = make_parent_msg(info, manual_r, show_driver=show_driver)
+                    st.code(parent_msg, language=None)
+            else:
+                # 일반 배정: 둘 다 표시
+                parent_msg = make_parent_msg(info, r, show_driver=show_driver)
+                notice = make_notice(info, r)
+                t1, t2 = st.tabs(["📱 학부모 안내 문자", "📝 내부 배정 양식"])
+                with t1:
+                    st.code(parent_msg, language=None)
+                with t2:
+                    st.code(notice, language=None)
