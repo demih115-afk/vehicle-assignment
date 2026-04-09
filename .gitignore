@@ -8,3 +8,5 @@ test_output*.txt
 버스정류장_*.txt
 schools.txt
 .claude/
+streamlit_secrets.txt
+gen-lang-client-*.json

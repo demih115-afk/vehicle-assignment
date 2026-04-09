@@ -75,14 +75,233 @@ ALL_DAYS = ["월", "화", "수", "목", "금", "토"]
 
 
 # ─── 데이터 ───
+SPREADSHEET_ID = "1hfD9VdH1u2AQVER85CEMGBeB4BI-D-w3LLO2g6uH_s8"
+VEHICLE_INFO = {
+    0: {"number": 1, "area": "유곡동/우정동/태화동/센트리지", "driver": "박준성", "phone": "010-6677-9775"},
+    1: {"number": 2, "area": "강변E편한/반구동/새치(학성동)", "driver": "서병진", "phone": "010-6566-7921"},
+    2: {"number": 3, "area": "명촌동/학성초/반구동/남외동", "driver": "하수복", "phone": "010-4584-7036"},
+    3: {"number": 5, "area": "복산동/약사동/래미안", "driver": "유종근", "phone": "010-6579-0441"},
+    4: {"number": 6, "area": "성안동(성안초 방면)/센트리지", "driver": "김종철", "phone": "010-2850-0841"},
+    5: {"number": 7, "area": "성안동(백양초 방면)/장현동", "driver": "박석칠", "phone": "010-6570-6243"},
+    6: {"number": 8, "area": "서동/병영성/산전/약사아이파크", "driver": "김철현", "phone": "010-9332-2419"},
+}
+NAVER_HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://map.naver.com/"}
+
+
+def _get_gsheet_credentials():
+    """Google Sheets 인증 (Streamlit Cloud 시크릿 또는 로컬 JSON)"""
+    from google.oauth2.service_account import Credentials
+    scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    try:
+        info = dict(st.secrets.get("gcp_service_account", {}))
+        if info:
+            return Credentials.from_service_account_info(info, scopes=scopes)
+    except Exception:
+        pass
+    sa_path = os.path.join(BASE_DIR, "gen-lang-client-0025269547-abb95bd564f8.json")
+    if os.path.exists(sa_path):
+        return Credentials.from_service_account_info(
+            json.load(open(sa_path)), scopes=scopes)
+    return None
+
+
+def _get_naver_coords(url):
+    """네이버 지도 링크에서 좌표 추출"""
+    if not url:
+        return None, None
+    try:
+        ctx = ssl.create_default_context()
+        if "/place/" in url:
+            pid = re.search(r"/place/(\d+)", url).group(1)
+            api = f"https://map.naver.com/p/api/place/summary/{pid}"
+            req = urllib.request.Request(api, headers=NAVER_HEADERS)
+            with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+                d = json.loads(resp.read())
+                c = d["data"]["placeDetail"]["coordinate"]
+                return c["latitude"], c["longitude"]
+        elif "/bus-station/" in url:
+            sid = re.search(r"/bus-station/(\d+)", url).group(1)
+            api = f"https://map.naver.com/p/api/pubtrans/bus/stops/{sid}"
+            req = urllib.request.Request(api, headers=NAVER_HEADERS)
+            with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+                d = json.loads(resp.read())
+                return d["point"]["y"], d["point"]["x"]
+    except Exception:
+        pass
+    return None, None
+
+
+def _format_schedule_key(val):
+    """시간대 셀 → 스케줄 키 변환"""
+    if not val:
+        return None, False
+    s = str(val).strip()
+    is_sat = "토요일" in s
+    s = s.replace("토요일", "").strip()
+    m = re.search(r"(\d{1,2}):?(\d{2})?", s)
+    if not m:
+        return None, is_sat
+    h, mn = int(m.group(1)), m.group(2) or "00"
+    time_str = f"{h}:{mn}"
+    day_m = re.search(r"[(\uff08]([^\)\uff09]+)[)\uff09]", s)
+    day_suffix = ""
+    if day_m:
+        day_suffix = f"_{day_m.group(1).replace('.','').replace(',','').replace(' ','')}"
+    return f"{time_str}{day_suffix}", is_sat
+
+
+def _format_time_val(val):
+    """엑셀 시간값 → HH:MM"""
+    if not val:
+        return ""
+    s = str(val).strip()
+    m = re.match(r"(\d{1,2}):(\d{2})", s)
+    if m:
+        return f"{int(m.group(1))}:{m.group(2)}"
+    return s
+
+
+@st.cache_data(ttl=300)  # 5분 캐시
+def load_data_from_sheets():
+    """Google Sheets에서 실시간으로 코스표 읽기 + 좌표 매핑"""
+    creds = _get_gsheet_credentials()
+    if not creds:
+        # fallback: 로컬 routes.json
+        with open(DATA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    from googleapiclient.discovery import build
+    service = build("sheets", "v4", credentials=creds)
+
+    # 기존 좌표 캐시 로드 (좌표는 자주 안 바뀌니까)
+    coord_cache = {}
+    if os.path.exists(DATA_PATH):
+        with open(DATA_PATH, "r", encoding="utf-8") as f:
+            old = json.load(f)
+            for v in old.get("vehicles", []):
+                for stype in ["weekday", "saturday"]:
+                    for key, stops in v[stype].items():
+                        for s in stops:
+                            if s.get("lat") and s.get("map_url"):
+                                coord_cache[s["map_url"]] = (s["lat"], s["lng"])
+
+    # 시트 목록
+    meta = service.spreadsheets().get(spreadsheetId=SPREADSHEET_ID).execute()
+    sheets = meta["sheets"]
+
+    vehicles = []
+    for idx, sheet in enumerate(sheets):
+        info = VEHICLE_INFO.get(idx)
+        if not info:
+            continue
+        title = sheet["properties"]["title"]
+
+        # 전체 데이터 + 하이퍼링크 가져오기
+        result = service.spreadsheets().get(
+            spreadsheetId=SPREADSHEET_ID,
+            ranges=[f"'{title}'!A1:L50"],
+            includeGridData=True,
+            fields="sheets.data.rowData.values(hyperlink,formattedValue)"
+        ).execute()
+
+        rows = result["sheets"][0]["data"][0].get("rowData", [])
+
+        weekday = {}
+        saturday = {}
+        current_key = None
+        is_saturday = False
+
+        for row in rows:
+            cells = row.get("values", [])
+            if len(cells) < 3:
+                continue
+
+            # B열 (index 1): 시간대
+            b_val = cells[1].get("formattedValue", "") if len(cells) > 1 else ""
+            c_val = cells[2].get("formattedValue", "") if len(cells) > 2 else ""
+
+            if b_val.strip():
+                new_key, is_sat = _format_schedule_key(b_val)
+                if new_key:
+                    current_key = new_key
+                    is_saturday = is_sat
+
+            if "승차코스" in c_val and current_key:
+                stops = []
+                for ci in range(3, min(len(cells), 12)):
+                    cell = cells[ci]
+                    name = cell.get("formattedValue", "")
+                    if not name or not name.strip():
+                        continue
+                    name = name.strip().replace("\n", " ")
+                    link = cell.get("hyperlink", "")
+                    stops.append({"stop": name, "map_url": link, "time": ""})
+
+                # 다음 행: 승차시간
+                # (이건 같은 API 호출 내에서 처리)
+
+                target = saturday if is_saturday else weekday
+                if current_key not in target:
+                    target[current_key] = []
+                target[current_key].extend(stops)
+
+            elif "승차시간" in c_val and current_key:
+                target = saturday if is_saturday else weekday
+                stop_list = target.get(current_key, [])
+                time_idx = 0
+                for ci in range(3, min(len(cells), 12)):
+                    cell = cells[ci]
+                    tv = cell.get("formattedValue", "")
+                    ft = _format_time_val(tv)
+                    if ft:
+                        # 마지막에 추가된 시간 없는 정류장에 시간 매핑
+                        for s in stop_list:
+                            if not s["time"]:
+                                s["time"] = ft
+                                break
+
+        # 좌표 매핑
+        for stype_dict in [weekday, saturday]:
+            for key, stops in stype_dict.items():
+                for s in stops:
+                    url = s.get("map_url", "")
+                    if url and url in coord_cache:
+                        s["lat"], s["lng"] = coord_cache[url]
+                    elif url:
+                        lat, lng = _get_naver_coords(url)
+                        if lat:
+                            s["lat"], s["lng"] = lat, lng
+                            coord_cache[url] = (lat, lng)
+
+        vehicles.append({
+            "number": info["number"], "area": info["area"],
+            "driver": info["driver"], "phone": info["phone"],
+            "weekday": weekday, "saturday": saturday,
+        })
+
+    return {
+        "academy_name": "더숲국어전문학원",
+        "vehicles": vehicles,
+        "locations": {
+            "본원": "더숲3관, 에스지, IBSI 영어, 엠플본관",
+            "더숲1관": "신한은행 4층", "엠플2관": "피자스쿨",
+            "더숲2관": "피자스쿨", "더숲국어": "알레르망 2층(래미안 맞은편)",
+        },
+    }
+
+
 @st.cache_data
 def load_data():
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """데이터 로드: Google Sheets 우선, 실패 시 로컬 fallback"""
+    try:
+        return load_data_from_sheets()
+    except Exception:
+        with open(DATA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+
 
 @st.cache_data
 def load_config():
-    # Streamlit Cloud 시크릿 우선, 로컬 config.json fallback
     try:
         key = st.secrets.get("kakao_rest_api_key", "")
         if key:
@@ -374,6 +593,8 @@ NEARBY_THRESHOLD = 20  # 미터. 내부 설정
 with st.sidebar:
     st.caption("⚙️ 설정")
     show_driver = st.toggle("기사님 연락처 포함", value=False)
+    st.divider()
+    st.caption("made by 국D w/ Claude Code")
 
 # ─── 입력 폼 ───
 with st.form("f", border=False):
