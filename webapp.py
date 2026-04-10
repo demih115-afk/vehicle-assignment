@@ -451,6 +451,41 @@ def fuzzy_score(query, stop_name):
 
     return score
 
+def _time_to_minutes(t):
+    """'7:00' → 420, '5:30' → 330"""
+    m = re.match(r"(\d{1,2}):(\d{2})", t)
+    if not m:
+        return None
+    return int(m.group(1)) * 60 + int(m.group(2))
+
+
+def resolve_schedule_time(user_time, data, is_saturday=False):
+    """사용자 시간 → 데이터에 존재하는 가장 가까운 이전 시간대로 매핑.
+    예: 6:00 → 5:30, 6:30 → 5:30, 7:30 → 7:00"""
+    target_min = _time_to_minutes(user_time)
+    if target_min is None:
+        return user_time
+
+    # 데이터에 존재하는 모든 schedule_time 수집
+    available = set()
+    for v in data["vehicles"]:
+        keys_iter = v["saturday"] if is_saturday else v["weekday"]
+        for k in keys_iter.keys():
+            base = k.split("_")[0]  # "8:00_월수금" → "8:00"
+            available.add(base)
+
+    # target_min 이하 중 가장 큰 것
+    best, best_min = None, -1
+    for sched in available:
+        sm = _time_to_minutes(sched)
+        if sm is None:
+            continue
+        if sm <= target_min and sm > best_min:
+            best = sched
+            best_min = sm
+    return best  # None이면 매칭 실패
+
+
 def get_schedule_keys(schedule_time, days):
     if schedule_time == "8:00":
         keys = []
@@ -754,9 +789,21 @@ if submitted:
     # 각 시간대별로 후보 검색
     time_candidates = {}  # {time_label: [top3 candidates]}
     manual_times = []     # 수동 배정 필요한 시간대 라벨 목록
-    for schedule_time, days_for_time in time_groups.items():
-        time_label = f"{','.join(days_for_time)} {_time_to_display(schedule_time)}"
-        results = find_stops(data, schedule_time, days_for_time, address, student_coords, NEARBY_THRESHOLD)
+    schedule_remap_notices = []  # 시간 매핑 알림
+
+    for user_time, days_for_time in time_groups.items():
+        is_sat = "토" in days_for_time
+        # 사용자 시간 → 코스표 시간 (가장 가까운 이전)
+        resolved = resolve_schedule_time(user_time, data, is_saturday=is_sat)
+        time_label = f"{','.join(days_for_time)} {_time_to_display(user_time)}"
+
+        if resolved and resolved != user_time:
+            schedule_remap_notices.append(
+                f"{_time_to_display(user_time)} 수업 → {_time_to_display(resolved)} 코스로 검색"
+            )
+
+        search_time = resolved if resolved else user_time
+        results = find_stops(data, search_time, days_for_time, address, student_coords, NEARBY_THRESHOLD)
 
         # 중복 제거 + 상위 3개
         seen, cands = set(), []
@@ -786,6 +833,10 @@ if submitted:
             manual_times.append(time_label)
         else:
             time_candidates[time_label] = cands
+
+    # 시간 매핑 알림 표시
+    if schedule_remap_notices:
+        st.info("ℹ️ " + " · ".join(schedule_remap_notices))
 
     if not any(time_candidates.values()):
         st.error("매칭되는 정류장이 없습니다. 타는 곳을 다시 확인해주세요.")
